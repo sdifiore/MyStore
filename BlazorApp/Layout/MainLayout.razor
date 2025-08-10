@@ -9,7 +9,7 @@
             <AuthorizeView>
                 <Authorized>
                     <p class="my-3 me-3">Hello, @context.User.Identity?.Name!</p>
-                    <button class="btn btn-primary">Logout</button>
+                    <button class="btn btn-primary" @onclick="Logout">Logout</button>
                 </Authorized>
                 <NotAuthorized>
                     <a class="btn btn-primary" href="Login">Login</a>
@@ -24,3 +24,18 @@
     </main>
 </div>
 
+@inject AuthenticationStateProvider provider
+@inject NavigationManager navManager
+
+@code {
+    private void Logout()
+    {
+        var authStateProvider = provider as CustomAuthStateProvider;
+
+        if (authStateProvider != null)
+        {
+            authStateProvider.Logout();
+            navManager.NavigateTo("/");
+        }
+    }
+}

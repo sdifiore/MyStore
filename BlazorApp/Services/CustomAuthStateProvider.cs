@@ -1,8 +1,8 @@
-﻿using System.Net.Http.Headers;
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
+using Blazored.LocalStorage;
 using System.Security.Claims;
 using System.Text.Json.Nodes;
-
+using System.Net.Http.Headers;
 using Microsoft.AspNetCore.Components.Authorization;
 
 namespace BlazorApp.Services
@@ -10,10 +10,23 @@ namespace BlazorApp.Services
 	public class CustomAuthStateProvider : AuthenticationStateProvider
 	{
 		private readonly HttpClient _httpClient;
+		private readonly ISyncLocalStorageService _localStorage;
 
-		public CustomAuthStateProvider(HttpClient httpClient)
+		public CustomAuthStateProvider(HttpClient httpClient, ISyncLocalStorageService localStorage)
 		{
 			_httpClient = httpClient;
+			_localStorage = localStorage;
+
+			var accessToken = _localStorage.GetItem<string>("accessToken");
+
+			if (!string.IsNullOrEmpty(accessToken))
+			{
+				_httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+			}
+			else
+			{
+				_httpClient.DefaultRequestHeaders.Authorization = null; // Clear the header if no token is present
+			}
 		}
 
 		public override async Task<AuthenticationState> GetAuthenticationStateAsync()
@@ -73,6 +86,9 @@ namespace BlazorApp.Services
 					var accessToken = jsonResponse?["accessToken"]?.ToString();
 					var refreshToken = jsonResponse?["refreshToken"]?.ToString();
 
+					_localStorage.SetItem("accessToken", accessToken);
+					_localStorage.SetItem("refreshToken", refreshToken);
+
 					_httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
 					// Need to refresh the authentication state
@@ -90,6 +106,15 @@ namespace BlazorApp.Services
 			catch { }
 
 			return new FormResult { Success = false, Errors = ["Connection Error]"] };
+		}
+
+		public void Logout()
+		{
+			_localStorage.RemoveItem("accessToken");
+			_localStorage.RemoveItem("refreshToken");
+			_httpClient.DefaultRequestHeaders.Authorization = null; // Clear the header
+			// Notify the authentication state has changed
+			NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()))));
 		}
 
 		public class FormResult
